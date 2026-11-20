@@ -87,10 +87,13 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/:id', requireAuth, async (req, res, next) => {
+router.get('/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) return res.status(400).json({ message: 'Invalid book ID' });
-    const book = await getDB().collection('books').findOne({ _id: new ObjectId(req.params.id) });
+    const book = await getDB().collection('books').findOne(
+      { _id: new ObjectId(req.params.id) },
+      { projection: { userEmail: 0 } },
+    );
     if (!book) return res.status(404).json({ message: 'Book not found' });
     res.json({ book: normalizeCopies(book) });
   } catch (error) {
