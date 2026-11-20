@@ -28,6 +28,7 @@ export async function connectDB() {
       { availableCopies: { $type: 'string' } },
       { totalCopies: { $lt: 1 } },
       { availableCopies: { $lt: 0 } },
+      { $expr: { $gt: ['$availableCopies', '$totalCopies'] } },
     ],
   }).toArray();
 
@@ -84,6 +85,10 @@ export async function connectDB() {
 export function getDB() {
   if (!database) throw new Error('Database has not been initialized');
   return database;
+}
+
+export function isDBConnected() {
+  return Boolean(database);
 }
 
 export function getMongoClient() {

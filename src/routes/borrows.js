@@ -36,6 +36,9 @@ function returnReservationUpdate(returnQuantity) {
 
 router.post('/', requireAuth, async (req, res, next) => {
   try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ message: 'A valid borrow request is required' });
+    }
     const { bookId } = req.body;
     const quantity = req.body.quantity === undefined ? 1 : req.body.quantity;
     if (typeof bookId !== 'string' || !ObjectId.isValid(bookId) || String(new ObjectId(bookId)) !== bookId) {

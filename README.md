@@ -8,6 +8,8 @@ cp .env.example .env
 npm run dev
 ```
 
+For production, set `NODE_ENV=production` and configure `PORT`, `MONGODB_URI`, `DB_NAME`, `CLIENT_ORIGIN`, `BETTER_AUTH_BASE_URL`, and the private `IMGBB_API_KEY`. The API listens on the hosting provider's `PORT` and exposes `/health` after MongoDB connects.
+
 
 ## Seed sample books
 
