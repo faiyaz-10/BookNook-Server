@@ -6,6 +6,8 @@ import imagesRouter from './routes/images.js';
 import { connectDB, isDBConnected } from './db.js';
 import { requireAuth } from './middleware/auth.js';
 
+const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+const isLocalDevelopment = process.env.NODE_ENV === 'development' && process.env.VERCEL !== '1';
 const clientOrigin = process.env.CLIENT_ORIGIN?.trim();
 if (!clientOrigin) {
   throw new Error('CLIENT_ORIGIN must be configured');
@@ -22,12 +24,12 @@ for (const origin of configuredOrigins) {
   if (
     parsedOrigin.origin !== origin
     || parsedOrigin.hostname.includes('*')
-    || (process.env.NODE_ENV === 'production' && parsedOrigin.protocol !== 'https:')
+    || (isProduction && parsedOrigin.protocol !== 'https:')
   ) {
     throw new Error('CLIENT_ORIGIN must contain exact origins and use HTTPS in production');
   }
 }
-if (process.env.NODE_ENV === 'production' && !process.env.IMGBB_API_KEY) {
+if (isProduction && !process.env.IMGBB_API_KEY) {
   throw new Error('IMGBB_API_KEY must be configured in production');
 }
 
@@ -37,13 +39,12 @@ app.use(cors({
     if (
       !origin
       || configuredOrigins.includes(origin)
-      || (process.env.NODE_ENV === 'development' && /^http:\/\/localhost:\d+$/.test(origin))
+      || (isLocalDevelopment && /^http:\/\/localhost:\d+$/.test(origin))
     ) {
       return callback(null, true);
     }
     return callback(null, false);
   },
-  credentials: true,
 }));
 app.use(express.json({ limit: '2mb' }));
 app.use(async (req, res, next) => {
