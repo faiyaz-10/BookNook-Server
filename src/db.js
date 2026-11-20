@@ -1,6 +1,7 @@
 import { MongoClient } from 'mongodb';
 
 let client;
+let connectionPromise;
 let database;
 let supportsTransactions = false;
 
@@ -8,18 +9,13 @@ function copyCount(value, fallback) {
   return Number.isSafeInteger(value) && value >= 0 ? value : fallback;
 }
 
-export async function connectDB() {
-  if (database) return database;
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error('MONGODB_URI is missing');
-
-  client = new MongoClient(uri);
-  await client.connect();
-  const topology = await client.db('admin').command({ hello: 1 });
+async function initializeDB(mongoClient) {
+  await mongoClient.connect();
+  const topology = await mongoClient.db('admin').command({ hello: 1 });
   supportsTransactions = Boolean(topology.setName || topology.msg === 'isdbgrid');
-  database = client.db(process.env.DB_NAME || 'booknook');
+  const initializedDatabase = mongoClient.db(process.env.DB_NAME || 'booknook');
 
-  const books = database.collection('books');
+  const books = initializedDatabase.collection('books');
   const legacyBooks = await books.find({
     $or: [
       { totalCopies: { $exists: false } },
@@ -49,7 +45,7 @@ export async function connectDB() {
     );
   }
 
-  const borrows = database.collection('borrows');
+  const borrows = initializedDatabase.collection('borrows');
   await borrows.updateMany(
     { status: { $exists: false } },
     { $set: { status: 'active' } },
@@ -78,8 +74,40 @@ export async function connectDB() {
     },
   );
 
-  console.log(`MongoDB connected: ${database.databaseName}`);
-  return database;
+  console.log(`MongoDB connected: ${initializedDatabase.databaseName}`);
+  return initializedDatabase;
+}
+
+export async function connectDB() {
+  if (database) return database;
+  if (connectionPromise) return connectionPromise;
+
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error('MONGODB_URI is missing');
+
+  const mongoClient = new MongoClient(uri);
+  client = mongoClient;
+  connectionPromise = initializeDB(mongoClient)
+    .then((initializedDatabase) => {
+      database = initializedDatabase;
+      return initializedDatabase;
+    })
+    .catch(async (error) => {
+      if (client === mongoClient) {
+        client = undefined;
+        database = undefined;
+        supportsTransactions = false;
+        connectionPromise = undefined;
+      }
+      try {
+        await mongoClient.close();
+      } catch (closeError) {
+        console.error('Failed to close MongoDB after initialization failure:', closeError);
+      }
+      throw error;
+    });
+
+  return connectionPromise;
 }
 
 export function getDB() {
@@ -102,8 +130,12 @@ export function supportsMongoTransactions() {
 
 export async function closeDB() {
   if (!client) return;
-  await client.close();
-  client = undefined;
-  database = undefined;
-  supportsTransactions = false;
+  const clientToClose = client;
+  await clientToClose.close();
+  if (client === clientToClose) {
+    client = undefined;
+    connectionPromise = undefined;
+    database = undefined;
+    supportsTransactions = false;
+  }
 }

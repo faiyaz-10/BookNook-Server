@@ -3,7 +3,7 @@ import cors from 'cors';
 import booksRouter from './routes/books.js';
 import borrowsRouter from './routes/borrows.js';
 import imagesRouter from './routes/images.js';
-import { isDBConnected } from './db.js';
+import { connectDB, isDBConnected } from './db.js';
 import { requireAuth } from './middleware/auth.js';
 
 const clientOrigin = process.env.CLIENT_ORIGIN?.trim();
@@ -27,6 +27,9 @@ for (const origin of configuredOrigins) {
     throw new Error('CLIENT_ORIGIN must contain exact origins and use HTTPS in production');
   }
 }
+if (process.env.NODE_ENV === 'production' && !process.env.IMGBB_API_KEY) {
+  throw new Error('IMGBB_API_KEY must be configured in production');
+}
 
 const app = express();
 app.use(cors({
@@ -43,6 +46,24 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '2mb' }));
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    return next();
+  } catch (error) {
+    console.error('Failed to initialize MongoDB for request:', error);
+    if (req.path === '/health') {
+      return res.status(503).json({
+        status: 'degraded',
+        service: 'BookNook API',
+        database: 'disconnected',
+      });
+    }
+    const unavailableError = new Error('Database is temporarily unavailable');
+    unavailableError.status = 503;
+    return next(unavailableError);
+  }
+});
 app.get('/health', (req, res) => {
   const database = isDBConnected() ? 'connected' : 'disconnected';
   return res.status(database === 'connected' ? 200 : 503).json({
@@ -64,14 +85,16 @@ app.use((req, res) => res.status(404).json({ message: 'API route not found' }));
 app.use((error, req, res, next) => {
   console.error(error);
   if (res.headersSent) return next(error);
-  const status = Number.isInteger(error.status) && error.status >= 400 && error.status < 500
+  const status = Number.isInteger(error.status) && error.status >= 400 && error.status <= 599
     ? error.status
     : 500;
   const message = error.type === 'entity.parse.failed'
     ? 'Invalid JSON request body'
     : status === 413
       ? 'Request body is too large'
-      : 'Internal server error';
+      : status === 503
+        ? 'Service temporarily unavailable'
+        : 'Internal server error';
   return res.status(status).json({ message });
 });
 export default app;

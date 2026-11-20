@@ -2,10 +2,6 @@ import 'dotenv/config';
 import app from './app.js';
 import { closeDB, connectDB } from './db.js';
 
-if (process.env.NODE_ENV === 'production' && !process.env.IMGBB_API_KEY) {
-  throw new Error('IMGBB_API_KEY must be configured in production');
-}
-
 const port = process.env.PORT === undefined ? 5000 : Number(process.env.PORT);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error('PORT must be a valid TCP port');
