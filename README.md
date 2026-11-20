@@ -16,6 +16,8 @@ On Vercel, select this backend repository as its own project and keep the projec
 
 Set `MONGODB_URI` to the Atlas connection string, `DB_NAME` to the backend database name, `CLIENT_ORIGIN` and `BETTER_AUTH_BASE_URL` to the exact production frontend origin (for example `https://your-frontend.vercel.app`), and `IMGBB_API_KEY` to the private upload key. Do not set `BETTER_AUTH_BASE_URL` to the backend URL. Local development uses `http://localhost:3000`; `BETTER_AUTH_BASE_URL` defaults to that origin when `NODE_ENV=development` and the variable is omitted.
 
+Image uploads require an ImgBB API key. For local development, put it in `server/.env` as `IMGBB_API_KEY=<your-private-key>` and restart `npm run dev`. For deployment, add `IMGBB_API_KEY` to the **backend Vercel project's** Environment Variables and redeploy; do not put it in the frontend or expose it as a `NEXT_PUBLIC_` variable. The key can be created from your ImgBB account's API page. If it is absent locally, `POST /images` returns HTTP 503 with a configuration message; the production app refuses to start without it.
+
 
 ## Seed sample books
 

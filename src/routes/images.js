@@ -35,7 +35,9 @@ router.post('/', requireAuth, handleImageUpload, async (req, res, next) => {
       return res.status(400).json({ message: 'Choose an image to upload.' });
     }
     if (!process.env.IMGBB_API_KEY) {
-      return res.status(503).json({ message: 'Image uploads are not configured on the server.' });
+      return res.status(503).json({
+        message: 'Image uploads are not configured. Set IMGBB_API_KEY in the backend environment.',
+      });
     }
 
     const formData = new FormData();
